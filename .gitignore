@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+#Book Recommendation System
+
+Book Recommendation System/data
+# Book Recommendation System/model
