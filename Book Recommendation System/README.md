@@ -156,3 +156,13 @@ It's fast, interpretable, and works excellently on sparse user-rating matrices w
   ]
 }
 ```
+
+---
+
+## App Demo Video
+
+https://github.com/user-attachments/assets/36df07c3-f850-4eac-98e0-790c227bc9c4
+
+
+
+
