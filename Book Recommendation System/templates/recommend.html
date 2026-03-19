@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find Books — Folio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:      #0d0d0d;
+      --surface: #161616;
+      --card:    #1a1a1a;
+      --border:  #272727;
+      --accent:  #e8c97a;
+      --accent2: #b89a52;
+      --text:    #f0ece4;
+      --muted:   #6b6660;
+      --error:   #e07a7a;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-weight: 300;
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.4rem 4rem; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+      background: rgba(13,13,13,.94); backdrop-filter: blur(14px); z-index: 100;
+    }
+    .logo {
+      font-family: 'Playfair Display', serif; font-size: 1.5rem;
+      letter-spacing: .04em; color: var(--accent); text-decoration: none;
+    }
+    .logo span { font-style: italic; }
+    nav a.back {
+      color: var(--muted); text-decoration: none;
+      font-size: .82rem; letter-spacing: .12em; text-transform: uppercase;
+      transition: color .2s;
+    }
+    nav a.back:hover { color: var(--accent); }
+
+    /* ── SEARCH AREA ── */
+    .search-area {
+      padding: 5rem 4rem 3rem; max-width: 680px;
+      animation: fadeUp .6s ease both;
+    }
+    .search-area h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin-bottom: .8rem;
+    }
+    .search-area h1 em { font-style: italic; color: var(--accent); }
+    .search-area p {
+      color: var(--muted); font-size: .95rem; line-height: 1.75;
+      margin-bottom: 2rem;
+    }
+
+    /* search box */
+    .search-box { position: relative; display: flex; }
+    #book-input {
+      flex: 1;
+      background: var(--surface); border: 1px solid var(--border); border-right: none;
+      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 1rem;
+      padding: 1rem 1.2rem; outline: none; transition: border-color .2s;
+    }
+    #book-input:focus { border-color: var(--accent); }
+    #book-input::placeholder { color: var(--muted); }
+    #search-btn {
+      background: var(--accent); color: #0d0d0d; border: none;
+      padding: 1rem 2rem;
+      font-family: 'DM Sans', sans-serif; font-size: .82rem;
+      font-weight: 500; letter-spacing: .1em; text-transform: uppercase;
+      cursor: pointer; white-space: nowrap; transition: background .2s;
+      position: relative; z-index: 300; flex-shrink: 0;
+    }
+    #search-btn:hover { background: var(--accent2); }
+
+    /* autocomplete dropdown */
+    .suggestions {
+      display: none; position: absolute; top: 100%; left: 0;
+      right: 0; /* full width, button overlap is fine */
+      background: var(--surface); border: 1px solid var(--border); border-top: none;
+      max-height: 220px; overflow-y: auto; z-index: 200;
+    }
+    .suggestions.show { display: block; }
+    .sug-item {
+      padding: .65rem 1.2rem; font-size: .88rem; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: background .12s;
+    }
+    .sug-item:hover, .sug-item.active { background: var(--card); color: var(--accent); }
+
+    /* ── STATUS MESSAGES ── */
+    .status {
+      padding: .6rem 4rem; font-size: .88rem;
+      display: none;
+    }
+    .status.show { display: block; }
+    #loader  { color: var(--muted); letter-spacing: .06em; }
+    #err-msg { color: var(--error); }
+
+    /* ── RESULTS ── */
+    #results { display: none; padding: 0 4rem 5rem; }
+    #results.show { display: block; }
+
+    .results-header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem; margin-bottom: 2rem;
+    }
+    .results-header h2 {
+      font-family: 'Playfair Display', serif; font-size: 1.4rem;
+    }
+    .results-header h2 em { font-style: italic; color: var(--accent); }
+    .results-header p { font-size: .78rem; color: var(--muted); margin-top: .3rem; }
+
+    /* result cards — horizontal text layout */
+    .rec-list { display: flex; flex-direction: column; gap: 0; }
+
+    .rec-card {
+      display: grid;
+      grid-template-columns: 2.4rem 1fr auto;
+      align-items: center; gap: 1.4rem;
+      padding: 1.3rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      transition: background .15s;
+      animation: fadeUp .4s ease both;
+    }
+    .rec-card:first-child { border-top: 1px solid var(--border); }
+    .rec-card:hover { background: var(--card); }
+    .rec-card:nth-child(1) { animation-delay: .05s; }
+    .rec-card:nth-child(2) { animation-delay: .10s; }
+    .rec-card:nth-child(3) { animation-delay: .15s; }
+    .rec-card:nth-child(4) { animation-delay: .20s; }
+    .rec-card:nth-child(5) { animation-delay: .25s; }
+
+    .rec-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem; font-style: italic;
+      color: var(--border); text-align: center; line-height: 1;
+    }
+    .rec-body { min-width: 0; }
+    .rec-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem; line-height: 1.3; margin-bottom: .25rem;
+    }
+    .rec-author { font-size: .8rem; color: var(--muted); margin-bottom: .2rem; }
+    .rec-pub    { font-size: .72rem; color: var(--muted); opacity: .7; }
+
+    .rec-score {
+      display: flex; flex-direction: column; align-items: flex-end; gap: .2rem;
+      white-space: nowrap;
+    }
+    .score-pct {
+      font-size: .9rem; font-weight: 500; color: var(--accent);
+    }
+    .score-label { font-size: .68rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border); padding: 2rem 4rem;
+      color: var(--muted); font-size: .75rem;
+      display: flex; justify-content: space-between;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 640px) {
+      nav { padding: 1rem 1.5rem; }
+      .search-area, #results, .status { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .search-box { flex-direction: column; }
+      #book-input { border-right: 1px solid var(--border); }
+      footer { padding: 1.5rem; flex-direction: column; gap: .4rem; }
+      .rec-score { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">F<span>ol</span>io</a>
+  <a href="/" class="back">← Trending</a>
+</nav>
+
+<div class="search-area">
+  <h1>Find books <em>like yours.</em></h1>
+  <p>Type a book title you've enjoyed. Folio uses collaborative filtering to find five books that readers with similar tastes also loved.</p>
+
+  <div class="search-box">
+    <div style="position:relative;flex:1;display:flex;">
+      <input id="book-input" type="text" placeholder="e.g. The Da Vinci Code" autocomplete="off" style="width:100%;" />
+      <div class="suggestions" id="suggestions"></div>
+    </div>
+    <button id="search-btn">Recommend</button>
+  </div>
+</div>
+
+<div id="loader"  class="status">Analysing reader patterns…</div>
+<div id="err-msg" class="status"></div>
+
+<div id="results">
+  <div class="results-header">
+    <h2>Because you liked <em id="query-label"></em></h2>
+    <p>Ranked by cosine similarity · collaborative filtering</p>
+  </div>
+  <div class="rec-list" id="rec-list"></div>
+</div>
+
+<footer>
+  <span>© 2024 Folio · Flask &amp; scikit-learn</span>
+  <span>Collaborative Filtering · Cosine Similarity</span>
+</footer>
+
+<script>
+  const bookList = {{ book_list | tojson }};
+  const input    = document.getElementById('book-input');
+  const sugBox   = document.getElementById('suggestions');
+  let activeIdx  = -1;
+
+  /* ── Autocomplete ── */
+  input.addEventListener('input', () => {
+    const q = input.value.toLowerCase().trim();
+    sugBox.innerHTML = ''; activeIdx = -1;
+    if (q.length < 2) { sugBox.classList.remove('show'); return; }
+    const hits = bookList.filter(b => b.toLowerCase().includes(q)).slice(0, 10);
+    if (!hits.length) { sugBox.classList.remove('show'); return; }
+    hits.forEach(b => {
+      const d = document.createElement('div');
+      d.className = 'sug-item'; d.textContent = b;
+      d.addEventListener('mousedown', () => { input.value = b; sugBox.classList.remove('show'); });
+      sugBox.appendChild(d);
+    });
+    sugBox.classList.add('show');
+  });
+
+  input.addEventListener('keydown', e => {
+    const items = [...sugBox.querySelectorAll('.sug-item')];
+    if (e.key === 'ArrowDown') { activeIdx = Math.min(activeIdx + 1, items.length - 1); highlight(items); }
+    else if (e.key === 'ArrowUp') { activeIdx = Math.max(activeIdx - 1, -1); highlight(items); }
+    else if (e.key === 'Enter') {
+      if (activeIdx >= 0 && items[activeIdx]) { input.value = items[activeIdx].textContent; sugBox.classList.remove('show'); }
+      search();
+    } else if (e.key === 'Escape') { sugBox.classList.remove('show'); }
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-box')) sugBox.classList.remove('show');
+  });
+
+  function highlight(items) {
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    if (activeIdx >= 0 && items[activeIdx]) input.value = items[activeIdx].textContent;
+  }
+
+  document.getElementById('search-btn').addEventListener('click', search);
+
+  /* ── Search ── */
+  async function search() {
+    const book = input.value.trim();
+    if (!book) return;
+    sugBox.classList.remove('show');
+
+    show('loader'); hide('err-msg'); hide('results');
+
+    try {
+      const res  = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ book_name: book }),
+      });
+      const data = await res.json();
+      hide('loader');
+
+      if (!res.ok) {
+        document.getElementById('err-msg').textContent = data.error || 'Something went wrong.';
+        show('err-msg'); return;
+      }
+
+      document.getElementById('query-label').textContent = book;
+      const list = document.getElementById('rec-list');
+      list.innerHTML = '';
+
+      data.recommendations.forEach((b, i) => {
+        const pub = b.publisher && b.publisher !== 'nan' ? `<div class="rec-pub">${b.publisher}${b.year && b.year !== 'nan' ? ' · ' + b.year : ''}</div>` : '';
+        list.innerHTML += `
+          <div class="rec-card">
+            <div class="rec-num">${i + 1}</div>
+            <div class="rec-body">
+              <div class="rec-title">${b.title}</div>
+              <div class="rec-author">${b.author}</div>
+              ${pub}
+            </div>
+            <div class="rec-score">
+              <div class="score-pct">${(b.score * 100).toFixed(1)}%</div>
+              <div class="score-label">match</div>
+            </div>
+          </div>`;
+      });
+      show('results');
+    } catch(err) {
+      hide('loader');
+      document.getElementById('err-msg').textContent = 'Error: ' + err.message;
+      show('err-msg');
+      console.error(err);
+    }
+  }
+
+  function show(id) { document.getElementById(id).classList.add('show'); }
+  function hide(id) { document.getElementById(id).classList.remove('show'); }
+</script>
+</body>
+</html>
